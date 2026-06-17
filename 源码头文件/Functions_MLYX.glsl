@@ -129,6 +129,20 @@ vec2 Lightmap_U0(vec2 tc1){
 vec2 Lightmap_U1(vec2 tc1){
     return clamp(vec2(float(uint(round(tc1.y * 65535.0)) >> 4u), float(uint(round(tc1.y * 65535.0)) & 15u)) * 0.0625, 0.0, 1.0);
 }
+//用于 1.26.30+ 纹理图集修复
+vec2 DeComTexCoord(vec2 texcoord0) {
+    
+    uvec2 compressed = uvec2(round(texcoord0 * 65535.0));
+    vec2 texCoord = vec2(
+        float((compressed.x & 32767u) << 1u),
+        float((compressed.y & 32767u) << 1u)
+    ) * (1.0 / 65536.0);
+
+    texCoord.x += (2.0 / 65536.0) * ((2.0 * float((compressed.x & 32768u) >> 15u)) - 1.0);
+    texCoord.y += (2.0 / 65536.0) * ((2.0 * float((compressed.y & 32768u) >> 15u)) - 1.0);
+
+    return texCoord;
+}
 
 //对象检测函数
 bool AquoEst(in vec4 color){
