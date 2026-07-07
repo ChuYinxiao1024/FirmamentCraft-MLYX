@@ -971,6 +971,59 @@ highp vec3 CalTexNormal(in sampler2D mattexture, in vec2 uv) {
 
 */
 
+
+#ifdef ForFragmentShader
+
+    highp float GetTextureDepth(highp vec2 texCoord){
+        vec3 color = texture2D(TEXTURE_0, texCoord).rgb;
+        return dot(color, vec3(0.2126, 0.7152, 0.0722));
+    }
+    //带TBN矩阵的纹理法线
+    highp vec3 ComTextureNormal(highp vec2 texCoord, vec3 worldpos){
+    
+        vec2 UniSize = 1.0 / TEXTURE_DIMENSIONS.xy;
+    
+        vec2 LargeOff = UniSize;
+        float LargeDepth_Jau = GetTextureDepth(texCoord + vec2(LargeOff.x, 0.0));
+        float LargeDepth_Haa  = GetTextureDepth(texCoord + vec2(0.0, LargeOff.y));
+
+        vec2 SmallOff = UniSize * MiniOffsetScale; //细节
+        float SmallDepth_Jau = GetTextureDepth(texCoord + vec2(SmallOff.x, 0.0));
+        float SmallDepth_Haa  = GetTextureDepth(texCoord + vec2(0.0, SmallOff.y));
+
+        float DepthCentro = GetTextureDepth(texCoord); //中心深度
+
+        float LargeGrad_X = (LargeDepth_Jau - DepthCentro) * 0.5; //U梯度
+        float SmallGrad_X = (SmallDepth_Jau - DepthCentro) * 0.5; //U梯度（细节）
+        float LargeGrad_Z = (LargeDepth_Haa - DepthCentro) * 0.5; //V梯度
+        float SmallGrad_Z = (SmallDepth_Haa - DepthCentro) * 0.5; //V梯度（细节
+
+        float GX = LargeGrad_X + SmallGrad_X;
+        float GY = 1.0 / NormalDepthScale;
+        float GZ = LargeGrad_Z + SmallGrad_Z;
+
+        vec3 Normal = normalize(vec3(GX, GZ, GY)); //
+
+        vec3 dxpos = vec3(dFdx(worldpos.x), dFdx(worldpos.y), dFdx(worldpos.z));
+        vec3 dypos = vec3(dFdy(worldpos.x), dFdy(worldpos.y), dFdy(worldpos.z));
+        vec2 dxuv2 = vec2(dFdx(texCoord.x), dFdx(texCoord.y));
+        vec2 dyuv2 = vec2(dFdy(texCoord.x), dFdy(texCoord.y));
+    
+        vec3 dxuv = vec3(dxuv2, 0.0);
+        vec3 dyuv = vec3(dyuv2, 0.0);
+    
+        vec3 N = normalize(cross(dxpos, dypos));
+        vec3 T = normalize(dyuv.y * dxpos - dxuv.y * dypos);
+        vec3 B = normalize(cross(N, T));
+
+        mat3 TBN = mat3(T, B, N); //
+
+        return TBN * Normal;
+
+    }
+
+#endif
+
 //菲涅尔方程近似解
 lowp float FresnelAprox_Env(vec3 normal, vec3 view, float M){
     float NdotV = clamp(dot(normal, view), 0.0, 1.0);
